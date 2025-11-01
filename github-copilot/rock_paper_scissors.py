@@ -29,10 +29,13 @@ def determine_winner(player, computer):
 def run_cli():
     player_score = 0
     computer_score = 0
+    ties = 0
+    rounds = []  # list of tuples: (round_no, player_choice, computer_choice, result)
 
     print("Welcome to Rock, Paper, Scissors!")
     print("Type 'rock', 'paper', or 'scissors' to play, or 'quit' to exit.")
 
+    round_no = 0
     while True:
         player_choice = input("Your choice: ").strip().lower()
         if player_choice == 'quit':
@@ -42,20 +45,36 @@ def run_cli():
             print("Invalid choice. Please try again.")
             continue
 
+        round_no += 1
         computer_choice = get_computer_choice()
         print(f"Computer chose: {computer_choice}")
 
         winner = determine_winner(player_choice, computer_choice)
         if winner == 'player':
             player_score += 1
-            print("You win this round!")
+            result_text = "You win this round!"
         elif winner == 'computer':
             computer_score += 1
-            print("Computer wins this round!")
+            result_text = "Computer wins this round!"
         else:
-            print("It's a tie!")
+            ties += 1
+            result_text = "It's a tie!"
 
-        print(f"Score - You: {player_score}, Computer: {computer_score}")
+        rounds.append((round_no, player_choice, computer_choice, winner))
+
+        print(result_text)
+        print(f"Score - You: {player_score}, Computer: {computer_score}, Ties: {ties}")
+
+        # Print a concise per-round scoreboard (last 10 rounds to avoid flooding)
+        print("Recent rounds:")
+        for rn, p, c, w in rounds[-10:]:
+            if w == 'player':
+                res = 'You'
+            elif w == 'computer':
+                res = 'Computer'
+            else:
+                res = 'Tie'
+            print(f"  Round {rn}: You ({p}) vs Computer ({c}) — {res}")
 
 
 class RPSGui:
@@ -64,8 +83,12 @@ class RPSGui:
         root.title("Rock Paper Scissors")
         root.resizable(False, False)
 
+        # Track detailed scoreboard
         self.player_score = 0
         self.computer_score = 0
+        self.ties = 0
+        self.rounds = []  # list of tuples: (round_no, player_move, computer_move, result)
+        self.round_no = 0
 
         # Labels
         self.score_label = tk.Label(root, text=self._score_text(), font=(None, 12))
@@ -100,13 +123,28 @@ class RPSGui:
         quit_btn = tk.Button(ctrl_frame, text="Quit", command=root.quit)
         quit_btn.grid(row=0, column=1, padx=5)
 
+        # Detailed scoreboard (history)
+        board_frame = tk.Frame(root)
+        board_frame.pack(padx=10, pady=(0, 10), fill='both', expand=False)
+
+        board_label = tk.Label(board_frame, text="Round History (most recent at bottom):", font=(None, 10))
+        board_label.pack(anchor='w')
+
+        self.history_listbox = tk.Listbox(board_frame, width=60, height=8)
+        self.history_listbox.pack(side='left', fill='both', expand=True, pady=(4,0))
+
+        scrollbar = tk.Scrollbar(board_frame, orient='vertical', command=self.history_listbox.yview)
+        scrollbar.pack(side='right', fill='y')
+        self.history_listbox.config(yscrollcommand=scrollbar.set)
+
     def _score_text(self):
-        return f"Score — You: {self.player_score}  Computer: {self.computer_score}"
+        return f"Score — You: {self.player_score}  Computer: {self.computer_score}  Ties: {self.ties}"
 
     def play(self, player_move):
         computer_move = get_computer_choice()
         winner = determine_winner(player_move, computer_move)
 
+        self.round_no += 1
         if winner == 'player':
             self.player_score += 1
             result_text = "You win this round!"
@@ -114,18 +152,39 @@ class RPSGui:
             self.computer_score += 1
             result_text = "Computer wins this round!"
         else:
+            self.ties += 1
             result_text = "It's a tie!"
 
+        # Record round
+        self.rounds.append((self.round_no, player_move, computer_move, winner))
+        # Update UI
         self.score_label.config(text=self._score_text())
         self.result_label.config(text=result_text)
         self.computer_label.config(text=f"Computer: {computer_move}")
 
+        # Append a readable entry to the history listbox
+        if winner == 'player':
+            res_text = "You"
+        elif winner == 'computer':
+            res_text = "Computer"
+        else:
+            res_text = "Tie"
+
+        entry = f"Round {self.round_no}: You ({player_move}) vs Computer ({computer_move}) — {res_text}"
+        self.history_listbox.insert('end', entry)
+        # keep the latest visible
+        self.history_listbox.see('end')
+
     def reset_scores(self):
         self.player_score = 0
         self.computer_score = 0
+        self.ties = 0
+        self.rounds.clear()
+        self.round_no = 0
         self.score_label.config(text=self._score_text())
         self.result_label.config(text="Make your move")
         self.computer_label.config(text="Computer: -")
+        self.history_listbox.delete(0, 'end')
 
 
 def run_gui():
